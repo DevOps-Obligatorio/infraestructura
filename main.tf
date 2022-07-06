@@ -57,6 +57,62 @@ resource "aws_security_group" "vpc-sg" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+ingress {
+    description = "Allow Port 80"
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+    egress{
+    description = "Allow All"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_internet_gateway" "gw" {
+  vpc_id = aws_vpc.main.id
+
+  tags = {
+    Name = "my-app-getaway"
+  }
+}
+
+resource "aws_route" "internet_access" {
+  route_table_id         = aws_vpc.main.main_route_table_id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.gw.id
+}
+
+resource "aws_eip" "gw" {
+  vpc        = true
+  depends_on = [aws_internet_gateway.gw]
+}
+resource "aws_nat_gateway" "gw" {
+  subnet_id     = aws_subnet.principal.id
+  allocation_id = aws_eip.gw.id
+}
+
+resource "aws_route_table" "private" {
+  vpc_id = aws_vpc.main.id
+  
+  tags = {
+    Name = "my-route"
+  }
+  route {
+    cidr_block     = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.gw.id
+  }
+}  
+
+resource "aws_route_table_association" "private" {
+  #count          = var.az_count
+  subnet_id      = aws_subnet.principal.id
+  route_table_id = aws_route_table.private.id
 }
 
 #### CREATE CLUSTER ECS 
@@ -88,14 +144,14 @@ resource "aws_ecs_task_definition" "main" {
     container_definitions    = jsonencode([
         {
             name         =     "product-service"
-            image        =     "nginx:latest"
+            image        =     "450890513155.dkr.ecr.us-east-1.amazonaws.com/sale_app:payments-service"
             #cpu          =     256
             memory       =     512
             essentials   =     true
             portMappings = [
                 {
-                    containerPort = 80  
-                    hostPort      = 80
+                    containerPort = 8080  
+                    hostPort      = 8080
                 }
             ]
             logConfiguration = {
@@ -126,4 +182,5 @@ resource "aws_ecs_service" "main" {
     subnets          = aws_subnet.principal.*.id
     assign_public_ip = true
   }    
+  
 }

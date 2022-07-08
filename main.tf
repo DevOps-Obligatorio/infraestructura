@@ -208,6 +208,28 @@ resource "aws_ecs_task_definition" "main" {
                             awslogs-stream-prefix = "ecs"
                     }
             }
+        }
+		#4rd container
+		{
+            name         =     "orders-service"
+            image        =     "450890513155.dkr.ecr.us-east-1.amazonaws.com/sale_app:orders-service"
+            #cpu          =     256
+            memory       =     512
+            essentials   =     true
+            portMappings = [
+                {
+                    containerPort = 8083
+                    #hostPort      = 0
+                }
+            ]
+            logConfiguration = {
+                    logDriver = "awslogs"
+                    options =  {
+                            awslogs-group = "myapp-log"
+                            awslogs-region  = "us-east-1"
+                            awslogs-stream-prefix = "ecs"
+                    }
+            }
         }  
     ])
 }

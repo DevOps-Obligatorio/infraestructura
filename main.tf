@@ -128,10 +128,10 @@ resource "aws_ecs_cluster" "main" {
   }
 }
 
-resource "aws_cloudwatch_log_group" "myapp-log" {
-  name              = "myapp-log"
-  retention_in_days = 30
-}
+#resource "aws_cloudwatch_log_group" "myapp-log" {
+ # name              = "myapp-log"
+  #retention_in_days = 30
+#}
 
 ####TASK DEFINITION 
 resource "aws_ecs_task_definition" "main" {
@@ -144,14 +144,36 @@ resource "aws_ecs_task_definition" "main" {
     container_definitions    = jsonencode([
         {
             name         =     "product-service"
-            image        =     "450890513155.dkr.ecr.us-east-1.amazonaws.com/sale_app:payments-service"
+            image        =     "450890513155.dkr.ecr.us-east-1.amazonaws.com/sale_app:products-service"
             #cpu          =     256
             memory       =     512
             essentials   =     true
             portMappings = [
                 {
                     containerPort = 8080  
-                    hostPort      = 8080
+                    #hostPort      = 0
+                }      
+            ]
+            logConfiguration = {
+                    logDriver = "awslogs"
+                    options =  {
+                            awslogs-group = "myapp-log"
+                            awslogs-region  = "us-east-1"
+                            awslogs-stream-prefix = "ecs"
+                    }
+            }
+          },
+
+        {
+            name         =     "payments-service"
+            image        =     "450890513155.dkr.ecr.us-east-1.amazonaws.com/sale_app:payments-service"
+            #cpu          =     256
+            memory       =     512
+            essentials   =     true
+            portMappings = [
+                {
+                    containerPort = 9090
+                    #hostPort      = 0
                 }
             ]
             logConfiguration = {
@@ -162,7 +184,7 @@ resource "aws_ecs_task_definition" "main" {
                             awslogs-stream-prefix = "ecs"
                     }
             }
-            } 
+        } 
     ])
 }
 
@@ -172,9 +194,9 @@ resource "aws_ecs_service" "main" {
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.main.arn
   #health_check_grace_period_seconds = 2
-  deployment_minimum_healthy_percent = 1
-  deployment_maximum_percent = 100
-  desired_count   = 2
+  #deployment_minimum_healthy_percent = 1
+  #deployment_maximum_percent = 100
+  desired_count   = 1
   launch_type     = "FARGATE"
 
  network_configuration {

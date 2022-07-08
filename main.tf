@@ -208,7 +208,7 @@ resource "aws_ecs_task_definition" "main" {
                             awslogs-stream-prefix = "ecs"
                     }
             }
-        }
+        },
 		#4rd container
 		{
             name         =     "orders-service"

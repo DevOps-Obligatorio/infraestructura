@@ -20,6 +20,7 @@ resource "aws_vpc" "main" {
     Name = "main"
   }  
 }
+
 #### CREATE SUBNET
 resource "aws_subnet" "principal" {
   vpc_id     = aws_vpc.main.id
@@ -30,6 +31,7 @@ resource "aws_subnet" "principal" {
      Name = "main" 
   }
 }
+
 resource "aws_subnet" "secundaria" {
   vpc_id     = aws_vpc.main.id
   cidr_block = "10.10.20.0/24"
@@ -58,14 +60,14 @@ resource "aws_security_group" "vpc-sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-ingress {
+  ingress {
     description = "Allow Port 80"
     from_port   = 8080
     to_port     = 8080
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-    egress{
+  egress{
     description = "Allow All"
     from_port   = 0
     to_port     = 0
@@ -74,6 +76,7 @@ ingress {
   }
 }
 
+#### CREATE INTERNET GATEWAY
 resource "aws_internet_gateway" "gw" {
   vpc_id = aws_vpc.main.id
 
@@ -82,6 +85,7 @@ resource "aws_internet_gateway" "gw" {
   }
 }
 
+#### CREATE ROUTES AND GATEWAYS
 resource "aws_route" "internet_access" {
   route_table_id         = aws_vpc.main.main_route_table_id
   destination_cidr_block = "0.0.0.0/0"
@@ -129,8 +133,8 @@ resource "aws_ecs_cluster" "main" {
 }
 
 #resource "aws_cloudwatch_log_group" "myapp-log" {
- # name              = "myapp-log"
-  #retention_in_days = 30
+#  name              = "myapp-log"
+#  retention_in_days = 30
 #}
 
 ####TASK DEFINITION 
@@ -164,8 +168,7 @@ resource "aws_ecs_task_definition" "main" {
                     }
             }
 		},
-		  #2nd container
-
+		#2nd container
        	{
             name         =     "payments-service"
             image        =     "450890513155.dkr.ecr.us-east-1.amazonaws.com/sale_app:payments-service"
@@ -209,7 +212,7 @@ resource "aws_ecs_task_definition" "main" {
                     }
             }
         },
-		#4rd container
+		#4th container
 		{
             name         =     "orders-service"
             image        =     "450890513155.dkr.ecr.us-east-1.amazonaws.com/sale_app:orders-service"
@@ -250,5 +253,4 @@ resource "aws_ecs_service" "main" {
     subnets          = aws_subnet.principal.*.id
     assign_public_ip = true
   }    
-  
 }

@@ -40,9 +40,43 @@ resource "aws_subnet" "secundaria" {
   }
 }
 
-#### CREATE SECURITY GROUP
+#### CREATE SECURITY GROUP TASK DEFINITION
 resource "aws_security_group" "vpc-sg" {
   name = "main"
+  vpc_id = aws_vpc.main.id
+  description = "VPC Default Security Group"
+
+  tags = {
+    Name = "main"
+  }
+
+  #ingress {
+  #  description = "Allow Port 80"
+  #  from_port   = 80
+  #  to_port     = 80
+  #  protocol    = "tcp"
+  #  cidr_blocks = ["0.0.0.0/0"]
+  #}
+
+ingress {
+    description = "Allow Port 80"
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    #cidr_blocks = ["0.0.0.0/0"]
+    security_groups = [aws_security_group.alb.id]
+  }
+    egress{
+    description = "Allow All"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+#### CREATE SECURITY GROUP ALB DEFINITION
+resource "aws_security_group" "alb" {
+  name = "alb-main"
   vpc_id = aws_vpc.main.id
   description = "VPC Default Security Group"
 
@@ -58,13 +92,6 @@ resource "aws_security_group" "vpc-sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-ingress {
-    description = "Allow Port 80"
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
     egress{
     description = "Allow All"
     from_port   = 0
@@ -112,6 +139,12 @@ resource "aws_route_table" "private" {
 resource "aws_route_table_association" "private" {
   #count          = var.az_count
   subnet_id      = aws_subnet.principal.id
+  route_table_id = aws_route_table.private.id
+}
+
+resource "aws_route_table_association" "public" {
+  #count          = var.az_count
+  subnet_id      = aws_subnet.secundaria.id
   route_table_id = aws_route_table.private.id
 }
 
@@ -242,7 +275,7 @@ resource "aws_ecs_service" "main" {
   #health_check_grace_period_seconds = 2
   #deployment_minimum_healthy_percent = 1
   #deployment_maximum_percent = 100
-  desired_count   = 1
+  desired_count   = 2
   launch_type     = "FARGATE"
 
  network_configuration {
@@ -250,5 +283,55 @@ resource "aws_ecs_service" "main" {
     subnets          = aws_subnet.principal.*.id
     assign_public_ip = true
   }    
+
+   load_balancer {
+    target_group_arn = aws_alb_target_group.app.id
+    container_name   = "product-service"
+    container_port   = 8080
+  }
+
   
+}
+
+# alb.tf
+
+resource "aws_alb" "main" {
+  name            = "myapp-load-balancer"
+  #subnets         = aws_subnet.principal.*.id
+
+  subnets = [
+    aws_subnet.principal.id,
+    aws_subnet.secundaria.id,
+  ]
+  security_groups = [aws_security_group.alb.id]
+}
+
+resource "aws_alb_target_group" "app" {
+  name        = "myapp-target-group"
+  port        = 80
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "ip"
+
+  health_check {
+  #  healthy_threshold   = "3"
+    interval            = "300"
+  #  protocol            = "HTTP"
+  #  matcher             = "200"
+   timeout             = "60"
+  #  #path                = var.health_check_path
+    unhealthy_threshold = "10"
+  }
+}
+
+# Redirect all traffic from the ALB to the target group
+resource "aws_alb_listener" "front_end" {
+  load_balancer_arn = aws_alb.main.id
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    target_group_arn = aws_alb_target_group.app.id
+    type             = "forward"
+  }
 }
